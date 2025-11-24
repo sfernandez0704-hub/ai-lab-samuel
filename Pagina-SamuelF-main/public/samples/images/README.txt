@@ -1,1 +1,0 @@
-Añade aquí rostros de prueba (.jpg/.png).\n
