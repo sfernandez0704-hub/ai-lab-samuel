@@ -1,0 +1,11 @@
+{
+  "labels": [
+    "dog",
+    "cat",
+    "cow",
+    "sheep"
+  ],
+  "format": "tfjs-layers-model",
+  "sampleRate": 16000,
+  "durationSec": 5
+}

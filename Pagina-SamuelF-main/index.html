@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>AI Lab: Emociones, Sonidos y Formaciones</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: { extend: { colors: { model:{ emotions:'#facc15', animals:'#22c55e', formations:'#3b82f6' } },
+                         boxShadow:{ soft:'0 10px 30px rgba(0,0,0,0.08)' } } }
+    }
+  </script>
+  <!-- TensorFlow.js: versión 2.8.6, estable con Teachable Machine -->
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@2.8.6/dist/tf.min.js"></script>
+
+  <!-- Librerías de Teachable Machine -->
+  <script src="https://cdn.jsdelivr.net/npm/@teachablemachine/image@0.8/dist/teachablemachine-image.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@teachablemachine/audio@0.8/dist/teachablemachine-audio.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@teachablemachine/pose@0.8/dist/teachablemachine-pose.min.js"></script>
+
+  <!-- Tu script principal -->
+  <script type="module" src="./assets/main.js"></script>
+
+  <link rel="stylesheet" href="./assets/style.css"/>
+</head>
+<body class="bg-white text-neutral-900 dark:bg-neutral-950 dark:text-neutral-100">
+  <header class="sticky top-0 z-50 bg-white/70 dark:bg-neutral-950/70 backdrop-blur border-b border-neutral-200/60 dark:border-neutral-800/80">
+    <div class="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between">
+      <div>
+        <h1 class="text-xl md:text-2xl font-semibold">AI Lab: Emociones, Sonidos y Formaciones</h1>
+        <p class="text-xs md:text-sm text-neutral-600 dark:text-neutral-400">Demo web multi‑modelo en tiempo real. Samuel Fernández</p>
+      </div>
+      <div class="flex items-center gap-2">
+        <nav id="tabs" class="flex gap-1 p-1 rounded-2xl bg-neutral-100 dark:bg-neutral-800" aria-label="Selector de modelo">
+          <button data-tab="emotions" class="tab active">Emociones</button>
+          <button data-tab="animals" class="tab">Sonidos</button>
+          <button data-tab="formations" class="tab">Formaciones</button>
+        </nav>
+        <button id="themeBtn" class="ml-2 rounded-xl px-3 py-2 hover:bg-neutral-200/60 dark:hover:bg-neutral-800 transition" aria-label="Cambiar tema">🌓</button>
+      </div>
+    </div>
+  </header>
+
+  <main class="max-w-6xl mx-auto px-4 py-6 space-y-6">
+    <section class="card">
+      <div class="flex flex-col md:flex-row items-center gap-4">
+        <div class="flex-1">
+          <h2 class="text-2xl font-bold">AI Lab: Emociones, Sonidos y Formaciones</h2>
+          <p class="text-neutral-600 dark:text-neutral-400">Elige un modo y prueba en tiempo real con tu cámara o micrófono. También puedes usar archivos de ejemplo.</p>
+        </div>
+        <div class="grid grid-cols-3 gap-2 w-full md:w-auto">
+          <div class="pill" style="--c:#facc15">😊 Emociones</div>
+          <div class="pill" style="--c:#22c55e">🔊 Sonidos</div>
+          <div class="pill" style="--c:#3b82f6">⚽ Formaciones</div>
+        </div>
+      </div>
+    </section>
+
+    <section id="panel-emotions" class="panel">
+      <h3 class="title">😊 Emociones <span id="status-emotions" class="badge">Sin permisos</span></h3>
+      <div class="grid md:grid-cols-2 gap-4 items-start">
+        <div class="space-y-3">
+          <div class="card">
+            <div class="aspect-video w-full overflow-hidden rounded-2xl border border-neutral-200/70 dark:border-neutral-800">
+              <canvas id="emo-canvas" width="960" height="540" class="w-full h-auto"></canvas>
+              <video id="emo-video" class="hidden" playsinline muted></video>
+              <img id="emo-img" class="hidden"/>
+            </div>
+          </div>
+          <div class="card flex flex-wrap items-center gap-2">
+            <button id="emo-start" class="btn">Iniciar</button>
+            <button id="emo-stop" class="btn">Detener</button>
+            <label class="inline-flex items-center gap-2 ml-2">
+              <input id="emo-lowfps" type="checkbox"> Bajar FPS
+            </label>
+            <div class="ml-auto text-sm opacity-70">Latencia: <span id="emo-lat">0</span> ms</div>
+          </div>
+          <div class="card flex items-center gap-2">
+            <button id="emo-src-cam" class="btn-sm">Webcam</button>
+            <label class="btn-sm cursor-pointer">
+              Subir imagen
+              <input id="emo-file" type="file" accept="image/*" class="hidden"/>
+            </label>
+          </div>
+        </div>
+        <div class="space-y-3">
+          <div class="card">
+            <div class="text-sm text-neutral-500">Top‑1</div>
+            <div class="flex items-center justify-between">
+              <div class="text-2xl font-bold" id="emo-top1">—</div>
+              <div class="text-2xl font-bold tabular-nums" id="emo-top1p">—</div>
+            </div>
+          </div>
+          <div class="card">
+            <h4 class="text-sm font-semibold mb-2">Top‑3</h4>
+            <ul id="emo-top3" class="space-y-2"></ul>
+          </div>
+          <div class="card">
+            <h4 class="text-sm font-semibold mb-2">Acerca del modelo</h4>
+            <ul class="list-disc pl-5 space-y-1 text-sm">
+              <li>Clases: feliz, triste, enojado, sorprendido y neutral.</li>
+              <li>Entrenado con Inteligencia Artificial Teachable Machine. Requiere buena iluminación.</li>
+              <li>Limitaciones: Rostros con facciones muy marcadas en diferentes emociones.</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="panel-animals" class="panel hidden">
+      <h3 class="title">🐾 Sonidos de animales <span id="status-animals" class="badge">Sin permisos</span></h3>
+      <div class="grid md:grid-cols-2 gap-4 items-start">
+        <div class="space-y-3">
+          <div class="card">
+            <div class="aspect-video w-full overflow-hidden rounded-2xl border border-neutral-200/70 dark:border-neutral-800 p-2">
+              <canvas id="aud-canvas" width="640" height="360" class="w-full h-auto"></canvas>
+            </div>
+          </div>
+          <div class="card flex flex-wrap items-center gap-2">
+            <button id="aud-start" class="btn">Grabar</button>
+            <button id="aud-stop" class="btn">Detener</button>
+            <div class="card flex flex-wrap items-center gap-2 mt-2">
+            <span class="text-sm">Archivo de audio:</span>
+            <label class="btn-sm cursor-pointer">
+              Subir audio
+              <input id="aud-file" type="file" accept="audio/*" class="hidden">
+            </label>
+            <small class="text-xs text-neutral-500">Puedes subir un clip .wav / .mp3 para probar.</small>
+          </div>
+            <div class="ml-auto text-sm opacity-70">Latencia: <span id="aud-lat">0</span> ms</div>
+          </div>
+          <div class="card flex flex-wrap items-center gap-2">
+            <span class="text-sm">Clases:</span>
+           <!-- Este es un comentario en HTML --> <button class="btn-sm" onclick="AudioUI.play('dog_demo.wav')">Perro</button>
+            <button class="btn-sm" onclick="AudioUI.play('cat_demo.wav')">Gato</button>
+            <button class="btn-sm" onclick="AudioUI.play('cow_demo.wav')">Vaca</button>
+            <button class="btn-sm" onclick="AudioUI.play('sheep_demo.wav')">Oveja</button>
+
+            <audio id="aud-player" class="hidden" controls></audio>
+          </div>
+        </div>
+        <div class="space-y-3">
+          <div class="card">
+            <div class="text-sm text-neutral-500">Top‑1</div>
+            <div class="flex items-center justify-between">
+              <div class="text-2xl font-bold" id="aud-top1">—</div>
+              <div class="text-2xl font-bold tabular-nums" id="aud-top1p">—</div>
+            </div>
+          </div>
+          <div class="card">
+            <h4 class="text-sm font-semibold mb-2">Top‑3</h4>
+            <ul id="aud-top3" class="space-y-2"></ul>
+          </div>
+          <div class="card">
+            <h4 class="text-sm font-semibold mb-2">Acerca del modelo</h4>
+            <ul class="list-disc pl-5 space-y-1 text-sm">
+              <li>Clases: perro, gato, vaca, oveja.</li>
+              <li>Entrenado con Inteligencia Artificial en Teachable Machine. Usa micrófono o sube un clip de prueba.</li>
+              <li>Limitaciones: el ruido ambiente afecta precisión.</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="panel-formations" class="panel hidden">
+      <h3 class="title">⚽ Formaciones de fútbol <span id="status-formations" class="badge">Sin permisos</span></h3>
+      <div class="grid md:grid-cols-2 gap-4 items-start">
+        <div class="space-y-3">
+          <div class="card">
+            <div class="aspect-video w-full overflow-hidden rounded-2xl border border-neutral-200/70 dark:border-neutral-800">
+              <canvas id="frm-canvas" width="960" height="540" class="w-full h-auto"></canvas>
+              <video id="frm-video" class="hidden" playsinline muted></video>
+            </div>
+          </div>
+          <div class="card flex flex-wrap items-center gap-2">
+            <button id="frm-start" class="btn">Iniciar</button>
+            <button id="frm-stop" class="btn">Detener</button>
+                  <div class="card flex flex-wrap items-center gap-2">
+        <span class="text-sm">Imagen de ejemplo:</span>
+        <label class="btn-sm cursor-pointer">
+          Subir imagen
+          <input id="frm-file" type="file" accept="image/*" class="hidden">
+        </label>
+        <small class="text-xs text-neutral-500">Usa imágenes del dataset para mejores resultados.</small>
+        <img id="frm-img" class="hidden" alt="ejemplo formación">
+      </div>
+            <div class="ml-auto text-sm opacity-70">Latencia: <span id="frm-lat">0</span> ms</div>
+          </div>
+          <div class="card">
+            <h4 class="text-sm font-semibold mb-2">Mini cancha</h4>
+            <canvas id="frm-mini" width="360" height="200" class="w-full h-auto bg-green-700/20 rounded-md"></canvas>
+          </div>
+        </div>
+        <div class="space-y-3">
+          <div class="card">
+            <div class="text-sm text-neutral-500">Top‑1</div>
+            <div class="flex items-center justify-between">
+              <div class="text-2xl font-bold" id="frm-top1">—</div>
+              <div class="text-2xl font-bold tabular-nums" id="frm-top1p">—</div>
+            </div>
+          </div>
+          <div class="card">
+            <h4 class="text-sm font-semibold mb-2">Top‑3</h4>
+            <ul id="frm-top3" class="space-y-2"></ul>
+          </div>
+          <div class="card">
+            <h4 class="text-sm font-semibold mb-2">Acerca del modelo</h4>
+            <ul class="list-disc pl-5 space-y-1 text-sm">
+              <li>Clases: 4‑4‑2, 4‑3‑3, 3‑5‑2, 5-3-2.</li>
+              <li>Overlay de esqueleto.</li>
+              <li>Modelo de predicción para 4 clases diferentes de formaciones de fútbol.</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <footer class="text-xs text-neutral-500">
+      <hr class="my-6 border-neutral-200/60 dark:border-neutral-800/60"/>
+      Usa 1/2/3 para cambiar de modelo. Requiere permisos para cámara/micrófono. Desarrollado por Samuel Fernández.
+    </footer>
+  </main>
+
+</body>
+</html>
